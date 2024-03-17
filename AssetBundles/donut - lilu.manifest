@@ -1,15 +1,15 @@
 ManifestFileVersion: 0
-CRC: 2830877549
+CRC: 1980035196
 Hashes:
   AssetFileHash:
     serializedVersion: 2
-    Hash: 2a700b43bb385e60c797db7ecb3a69bd
+    Hash: e5b1ab7813aa2d38f579fa9eb7695d3e
   TypeTreeHash:
     serializedVersion: 2
-    Hash: d2de1c48cd1fb4f4df8f5f3d482dc120
+    Hash: 133438dec86415f7cb33d2da0c4cfd4b
   IncrementalBuildHash:
     serializedVersion: 2
-    Hash: 2a700b43bb385e60c797db7ecb3a69bd
+    Hash: e5b1ab7813aa2d38f579fa9eb7695d3e
 HashAppended: 0
 ClassTypes:
 - Class: 1
@@ -21,6 +21,8 @@ ClassTypes:
 - Class: 21
   Script: {instanceID: 0}
 - Class: 23
+  Script: {instanceID: 0}
+- Class: 28
   Script: {instanceID: 0}
 - Class: 33
   Script: {instanceID: 0}
@@ -39,16 +41,24 @@ ClassTypes:
 - Class: 114
   Script: {fileID: 11500000, guid: 23c1ce4fb46143f46bc5cb5224c934f6, type: 3}
 - Class: 114
-  Script: {fileID: 11500000, guid: c30496d6ae6d6f907456e10a94e01ec6, type: 3}
-- Class: 114
-  Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-- Class: 114
   Script: {fileID: 11500000, guid: 7a68c43fe1f2a47cfa234b5eeaa98012, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: c30496d6ae6d6f907456e10a94e01ec6, type: 3}
 - Class: 114
   Script: {fileID: 11500000, guid: 3c36d0a92cbb1f26a39169ef0eae393a, type: 3}
 - Class: 114
   Script: {fileID: 11500000, guid: 3d0cf24d2ccc3b7eab72048d0f57c437, type: 3}
+- Class: 114
+  Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
 - Class: 115
+  Script: {instanceID: 0}
+- Class: 213
+  Script: {instanceID: 0}
+- Class: 241
+  Script: {instanceID: 0}
+- Class: 243
+  Script: {instanceID: 0}
+- Class: 245
   Script: {instanceID: 0}
 SerializeReferenceClassIdentifiers:
 - AssemblyName: Assembly-CSharp
@@ -72,6 +82,7 @@ SerializeReferenceClassIdentifiers:
 Assets:
 - Assets/Prefabs/Donut - Lilu/donut.prefab
 - Assets/Prefabs/Donut - Lilu/DonutLilu.asset
+- Assets/Prefabs/Donut - Lilu/donutWIP.png
 - Assets/Prefabs/Donut - Lilu/dounut.blend
 - Assets/Prefabs/Donut - Lilu/donut sound.ogg
 Dependencies: []
