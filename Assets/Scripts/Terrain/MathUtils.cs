@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿using System.Linq;
+using Unity.Mathematics;
+using UnityEngine;
 
 public static class MathUtils
 {
@@ -29,4 +31,7 @@ public static class MathUtils
 
     public static Vector3 InvXZ(this Vector2 v2)
         => new(v2.x, 0, v2.y);
+
+    public static float Sample(this NoiseOctave[] octaves, float baseNoiseScale, float2 pos, int2 off)
+        => octaves.Sum(x => x.Sample(baseNoiseScale, pos, off));
 }

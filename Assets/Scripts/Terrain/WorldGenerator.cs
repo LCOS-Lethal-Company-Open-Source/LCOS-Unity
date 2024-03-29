@@ -1,8 +1,6 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
@@ -11,17 +9,9 @@ using RandInst = Unity.Mathematics.Random;
 
 public class WorldGenerator : MonoBehaviour
 {
-    [Serializable]
-    public struct OctaveInfo
-    {
-        public Vector2 NoiseScale;
-        public Vector2 NoiseOffset;
-        public float OutputScale;
-    }
-
     // INSPECTOR VARIABLES //
     [Header("Noise")]
-    public OctaveInfo[] octaves;
+    public NoiseOctave[] octaves;
 
     [Header("Mesh Details")]
     public int width;
@@ -31,6 +21,8 @@ public class WorldGenerator : MonoBehaviour
 
     [Header("Prefabs")]
     public GameObject mountain;
+    public GameObject[] treeVariants;
+    public GameObject[] candyVariants;
 
     [Header("Objects")]
     public GameObject mansion;
@@ -51,13 +43,18 @@ public class WorldGenerator : MonoBehaviour
     public float mountainDistance;
     public float mountainRange;
 
+    [Header("Miscellaneous")]
+    public NoiseOctave[] treeOctaves;
+    public NoiseOctave[] candyOctaves;
+    public int treeCount;
+    public int candyCount;
+
     // PRIVATE VARIABLES //
-    List<GameObject> placedMountains = new();
     Mesh baseMesh;
     Mesh groundMesh;
 
-    Vector3[] baseVerts;
-    List<int3> groundTris;
+    Vector3[] waterVerts;
+    List<int3> waterTris;
 
     Vector3[] groundVerts;
     List<int3> baseTris;
@@ -68,12 +65,13 @@ public class WorldGenerator : MonoBehaviour
     Vector2 Size => new(width, height);
 
     RandInst random;
+    int2 noiseOff;
 
     public static int[] FormatTriangles(List<int3> tris)
     {
         var result = new int[tris.Count * 3];
 
-        for(int i = 0; i < tris.Count; i++)
+        for (int i = 0; i < tris.Count; i++)
         {
             var j = i * 3;
             result[j + 0] = tris[i].x;
@@ -105,33 +103,21 @@ public class WorldGenerator : MonoBehaviour
 
     public void GenerateGround()
     {
-        baseVerts = new Vector3[width * height];
+        waterVerts = new Vector3[width * height];
         baseTris = new();
 
-        var offX = random.NextInt(0, 10000);
-        var offY = random.NextInt(0, 10000);
+        noiseOff = random.NextInt2(0, 10000);
 
         for (int i = 0; i < width; i++)
         {
-            for(int j = 0; j < height; j++)
+            for (int j = 0; j < height; j++)
             {
-                var basePosition = GetWorldPosition(i, j).InvXZ();
-
-                var totalNoise = 0f;
-                for(int k = 0; k < octaves.Length; k++)
-                {
-                    var info = octaves[k];
-
-                    var noise = Mathf.PerlinNoise(
-                        info.NoiseScale.x * i * baseNoiseScale * spacing + info.NoiseOffset.x + offX,
-                        info.NoiseScale.y * j * baseNoiseScale * spacing + info.NoiseOffset.y + offY
-                    );
-
-                    totalNoise += noise * info.OutputScale - info.OutputScale / 2;
-                }
+                var basePositionXZ = GetWorldPosition(i, j);
+                var basePosition = basePositionXZ.InvXZ();
+                var totalNoise = octaves.Sample(baseNoiseScale, basePositionXZ, noiseOff);
 
                 var idx = Index(i, j);
-                baseVerts[idx] = basePosition + Vector3.up * totalNoise;
+                waterVerts[idx] = basePosition + Vector3.up * totalNoise;
 
                 if (i != width - 1 && j != height - 1)
                 {
@@ -150,8 +136,8 @@ public class WorldGenerator : MonoBehaviour
         }
 
         // Copy base information to ground information
-        groundVerts = baseVerts.ToArray();
-        groundTris = baseTris.ToList();
+        groundVerts = waterVerts.ToArray();
+        waterTris = baseTris.ToList();
     }
 
     public (int, int) GetVertexIndex(Vector2 xz, out bool leftTri)
@@ -166,68 +152,70 @@ public class WorldGenerator : MonoBehaviour
         return ((int)norm.x, (int)norm.y);
     }
 
-    public Vector3 SamplePoint(Vector2 xz)
+    public int3 GetTriangle(Vector2 xz)
     {
-        // Get the vertex indices for this position
         var (minx, miny) = GetVertexIndex(xz, out var left);
 
         var maxx = minx + 1;
         var maxy = miny + 1;
 
         // Get the triangle this vertex is a part of
-        int a, b, c;
-
-        if(left)
+        if (left)
         {
-            a = Index(minx, miny);
-            b = Index(maxx, miny);
-            c = Index(minx, maxy);
+            return math.int3(
+                Index(minx, miny),
+                Index(maxx, miny),
+                Index(minx, maxy)
+            );
         }
         else
         {
-            a = Index(minx, miny);
-            b = Index(maxx, miny);
-            c = Index(maxx, maxy);
+            return math.int3(
+                Index(minx, miny),
+                Index(maxx, miny),
+                Index(maxx, maxy)
+            );
         }
+    }
 
-        // Debugging
-        #if false
-        Debug.DrawLine(
-            xz.InvXZ() - Vector3.up * 1000,
-            xz.InvXZ() + Vector3.up * 1000,
-            Color.cyan,
-            10
-        );
-        Debug.DrawLine(
-            verts[a],
-            verts[b],
-            Color.red,
-            10
-        ); Debug.DrawLine(
-            verts[b],
-            verts[c],
-            Color.red,
-            10
-        ); Debug.DrawLine(
-            verts[c],
-            verts[a],
-            Color.red,
-            10
-        );
-        #endif
-
+    public Vector3 GetBarycentric(Vector2 xz, int3 tri)
+    {
         // Use barycentric interpolation to calculate the
         // point's position on the mesh
-        var bary = MathUtils.Barycentric(
-            baseVerts[a].XZ(),
-            baseVerts[b].XZ(),
-            baseVerts[c].XZ(),
+        return MathUtils.Barycentric(
+            waterVerts[tri.x].XZ(),
+            waterVerts[tri.y].XZ(),
+            waterVerts[tri.z].XZ(),
             xz
         );
+    }
 
-        return bary.x * baseVerts[a] 
-             + bary.y * baseVerts[b]
-             + bary.z * baseVerts[c];
+    public Vector3 SampleBarycentric(Vector3[] points, Vector3 bary, int3 tri)
+    {
+        return bary.x * points[tri.x]
+             + bary.y * points[tri.y]
+             + bary.z * points[tri.z];
+    }
+
+    public Vector3 SamplePointFrom(Vector3[] points, Vector2 xz)
+    {
+        // Get the vertex indices for this position
+        var tri = GetTriangle(xz);
+        var bary = GetBarycentric(xz, tri);
+        return SampleBarycentric(points, bary, tri);
+    }
+
+    public Vector3 SampleGroundPoint(Vector2 xz)
+        => SamplePointFrom(groundVerts, xz);
+
+    public void SampleGroundAndBasePoint(Vector2 xz, out Vector3 ground, out Vector3 @base)
+    {
+        // Get the vertex indices for this position
+        var tri = GetTriangle(xz);
+        var bary = GetBarycentric(xz, tri);
+
+        ground = SampleBarycentric(groundVerts, bary, tri);
+        @base = SampleBarycentric(waterVerts, bary, tri);
     }
 
     public void CreateDivet(Vector2 xz, float size, float depth)
@@ -238,9 +226,9 @@ public class WorldGenerator : MonoBehaviour
         int idxWidth = Mathf.CeilToInt(size / spacing);
 
         // Loop through relevant vertices
-        for(int x = Mathf.Max(cx - idxWidth, 0); x < Mathf.Min(cx + idxWidth, width); x++)
+        for (int x = Mathf.Max(cx - idxWidth, 0); x < Mathf.Min(cx + idxWidth, width); x++)
         {
-            for(int y = Mathf.Max(cy - idxWidth, 0); y < Mathf.Min(cy + idxWidth, height); y++)
+            for (int y = Mathf.Max(cy - idxWidth, 0); y < Mathf.Min(cy + idxWidth, height); y++)
             {
                 // Calculate world space coords
                 var world = GetWorldPosition(x, y);
@@ -304,20 +292,17 @@ public class WorldGenerator : MonoBehaviour
         var fwd = (mansionPoint - shipPoint).normalized;
         var per = new Vector2(-fwd.y, fwd.x);
 
-        placedMountains.Clear();
-
         // Randomly place a set of mountains
         var count = random.NextInt(minMountains, maxMountains);
-        for(int i = 0; i < count; i++)
+        for (int i = 0; i < count; i++)
         {
             var pos = mansionPoint
                     + fwd * (mountainDistance + random.NextFloat(-mountainRange, mountainRange))
                     + per * (random.NextFloat(-mountainRange, mountainRange));
 
-            var realpos = SamplePoint(pos);
+            var realpos = SampleGroundPoint(pos);
 
-            var newMountain = GameObject.Instantiate(mountain, realpos, mountain.transform.rotation);
-            placedMountains.Add(newMountain);
+            GameObject.Instantiate(mountain, realpos, mountain.transform.rotation);
         }
     }
 
@@ -331,22 +316,22 @@ public class WorldGenerator : MonoBehaviour
             if (index < 0 || index >= width * height)
                 return false;
 
-            if (baseVerts[index].y - waterOffset < groundVerts[index].y)
+            if (waterVerts[index].y - waterOffset < groundVerts[index].y)
                 return false;
 
             return true;
         }
 
-        for(int i = 0; i < width*height; i++)
+        for (int i = 0; i < width * height; i++)
         {
             if (Valid(i))
                 continue;
 
             bool hasValidNeighbor = false;
 
-            for(int dx = -1; dx <= 1 && !hasValidNeighbor; dx++)
+            for (int dx = -1; dx <= 1 && !hasValidNeighbor; dx++)
             {
-                for(int dy = -1; dy <= 1 && !hasValidNeighbor; dy++)
+                for (int dy = -1; dy <= 1 && !hasValidNeighbor; dy++)
                 {
                     if (dx == 0 && dy == 0) continue;
 
@@ -357,28 +342,27 @@ public class WorldGenerator : MonoBehaviour
                 }
             }
 
-            if(!hasValidNeighbor)
+            if (!hasValidNeighbor)
             {
                 removed.Add(i);
-                Debug.DrawLine(baseVerts[i], baseVerts[i] + Vector3.up * 0.5f, Color.red, 10);
             }
         }
 
         // Rebuild the vertex list without these vertices
-        var newBaseVerts = new Vector3[baseVerts.Length - removed.Count];
+        var newBaseVerts = new Vector3[waterVerts.Length - removed.Count];
         var newIndex = 0;
 
-        for(int i = 0; i < baseVerts.Length; i++)
+        for (int i = 0; i < waterVerts.Length; i++)
         {
             if (removed.Contains(i))
                 continue;
 
-            newBaseVerts[newIndex] = baseVerts[i];
+            newBaseVerts[newIndex] = waterVerts[i];
 
             newIndex++;
         }
 
-        baseVerts = newBaseVerts;
+        waterVerts = newBaseVerts;
 
         // Rebuild triangle list with vertex ids adjusted and with deleted triangles removed
         baseTris.RemoveAll(tri =>
@@ -416,7 +400,7 @@ public class WorldGenerator : MonoBehaviour
         baseMesh = new Mesh();
         water.mesh = baseMesh;
 
-        baseMesh.vertices = baseVerts;
+        baseMesh.vertices = waterVerts;
         baseMesh.triangles = FormatTriangles(baseTris);
 
         baseMesh.RecalculateBounds();
@@ -428,7 +412,7 @@ public class WorldGenerator : MonoBehaviour
         ground.mesh = groundMesh;
 
         groundMesh.vertices = groundVerts;
-        groundMesh.triangles = FormatTriangles(groundTris);
+        groundMesh.triangles = FormatTriangles(waterTris);
 
         groundMesh.RecalculateBounds();
     }
@@ -441,8 +425,40 @@ public class WorldGenerator : MonoBehaviour
             * random.NextFloat(minTravelDistance, maxTravelDistance);
 
         // Update the ship and mansion models to hover above the ground
-        ship.transform.position = SamplePoint(shipPoint);
-        mansion.transform.position = SamplePoint(mansionPoint);
+        ship.transform.position = SampleGroundPoint(shipPoint);
+        mansion.transform.position = SampleGroundPoint(mansionPoint);
+    }
+
+    public void GenerateDecorations(GameObject[] variants, NoiseOctave[] octaves, int count)
+    {
+        int placed = 0;
+
+        while(placed < count)
+        {
+            // Generate a random point within the bounds of the world
+            var pos = random.NextFloat2(
+                GetWorldPosition(1, 1),
+                GetWorldPosition(width-1, height-1)
+            );
+
+            // Check if the position is in a divet and do not place if it is
+            SampleGroundAndBasePoint(pos, out var groundPos, out var basePos);
+
+            if(groundPos.y <= basePos.y - waterOffset)
+            {
+                continue;
+            }
+
+            // If the random chance says so, place the thingy.
+            if(random.NextFloat(-0.5f, 0.5f) > octaves.Sample(baseNoiseScale, pos, noiseOff))
+            {
+                // Generate a random variant in this place.
+                var variant = random.NextInt(variants.Length);
+                GameObject.Instantiate(variants[variant], groundPos, variants[variant].transform.rotation);
+
+                placed++;
+            }
+        }
     }
 
     public void Generate(uint seed)
@@ -459,6 +475,8 @@ public class WorldGenerator : MonoBehaviour
         GenerateWorldPoints();
         GenerateRiver(shipPoint, mansionPoint);
         GenerateMountainRange();
+        GenerateDecorations(treeVariants, treeOctaves, treeCount);
+        GenerateDecorations(candyVariants, candyOctaves, candyCount);
 
         // Mesh handling
         MinimizeBaseMesh();
