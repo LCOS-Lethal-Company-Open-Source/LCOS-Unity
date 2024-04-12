@@ -1,0 +1,43 @@
+Over the last few weeks I (CJ Marino) and Dylan Rafael (rrafaed) have been working on integrating the 
+Candyland moon to lethal company. Due to the files we are using, and the fact they we are not able to 
+commit them
+to Github because they ar actual game files. We cannot commit anything except the final dll compiled file 
+with our working mod. The porpuse of this text file is to highlight what we have workon on during these 
+weeks 
+
+    -  We have created a procedurally generated terrain, These moons are next to unheard of with very 
+    little documentation on how to execute it, most of which is not realevant to Lethal Company
+
+    - We have added a procedurally generating facility, located in different areas of the exterior of the 
+    map. We also added precedurally genrated trees and candy items to make the game more replayable
+
+    - Integrated these with existing lethal companies assets and made the mod playable on the base game
+
+    - Modified the spawning parameters and conditions aswell as standardizing the ground position to
+    account for the terrain being radomly generated
+
+All of this comes with hours of debugging and hours of research required. The entire game takes roughly 3 
+minutes to compile (this will not affect game play) so it takes a large amount of time to make even the 
+slightest changes.
+
+Addintionally we need to review each item that is modeled by the modeling team and make sure that the mesh
+is reasonable and will not cause issues when adding it to the game.
+
+    - This requires each blend file to be dropped into Unity to make sure it renders as intended, 
+    especially making sure that the colors work properly
+    - We also need to make sure that the mesh will not cause us to go over the mesh caps, since we are 
+    generating everything proceudrally we had to calculate out the density of each object we added (worst 
+    case and best case) to ensure that crashing will in theory be impossible due to too much mesh being 
+    added. We wated to maximize the amount of ambience we can give the environment while not jepordizing 
+    game play
+
+What we are still working on:
+
+- Shaders to make the moon look better while playing
+- AI fixes of enimies to work with these new environments
+- Integration of all of our models into the game
+- Tons of bug testing in order to make the mod thunderstore ready
+
+This mod is planned to be the cornerstone of our entire project but much of the work that we have put in 
+cannot be put on GitHub due to it needing to be within the gitignore. We are currently predicting to have
+the mod finished in time for the RCOS Expo 
